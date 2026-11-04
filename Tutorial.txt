@@ -1,0 +1,376 @@
+Quorum External Module API Usage Guide
+
+This guide explains how to use Quorum-External-Module.dll directly from a C#
+project via P/Invoke — no wrapper assembly required. The dll exposes a flat
+C ABI (cdecl) with plain exported functions; you bind them yourself with
+[DllImport].
+
+Requirements:
+
+* A C# project (WinForms / WPF / Console) built for x64.
+* Quorum-External-Module.dll.
+* Administrator privileges at runtime (UAC manifest).
+
+
+Steps:
+
+1. Prepare the Project and Files:
+
+    * Switch to x64 Build:
+        In Visual Studio, go to "Build" -> "Configuration Manager".
+        Under "Active solution platform", select "x64" from the dropdown.
+        If it's not available, click "New..." and choose "x64".
+
+    * Extract Files:
+        From the Quorum archive, extract Quorum-External-Module.dll.
+
+    * Place Files:
+        Move Quorum-External-Module.dll into the output directory of your
+        project. This is typically located in:
+
+            [Your Project Folder]\bin\x64\Debug
+            [Your Project Folder]\bin\x64\Release
+
+        depending on your build configuration.
+
+2. No Reference Needed:
+
+    Unlike the old wrapper API, there is nothing to add under "References".
+    The dll is loaded at runtime by the CLR through DllImport, not at
+    compile time. Just ensure the file is present in the working directory.
+
+3. Add a Manifest File:
+
+    * Right-click your project > Add > New Item > Application Manifest File.
+    * In the added file (app.manifest), find the <requestedExecutionLevel> line.
+    * Replace it with:
+
+        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+
+    Administrator is required for Attach / Execute to work against Roblox.
+
+
+4. API Functions:
+
+    ------ Attach ------
+
+    * Attach All:
+        bool ok = QuorumModule.AttachAll();
+        Attaches to every running Roblox process. Returns true on success.
+
+    * Attach by PID:
+        bool ok = QuorumModule.Attach(pid);
+        Attaches to a single Roblox process by its Process ID.
+
+    * Is Attached (any):
+        bool attached = QuorumModule.IsAttached();
+        True if attached to at least one Roblox process.
+
+    * Is Attached by PID:
+        bool attached = QuorumModule.IsAttachedByPid(pid);
+        True if attached to the given PID.
+
+    * Detach:
+        QuorumModule.Detach();
+        Detaches from all attached processes.
+
+    * Detach by PID:
+        QuorumModule.DetachByPid(pid);
+        Detaches from a specific process.
+
+    ------ Execute ------
+
+    * Execute in One Client:
+        bool ok = QuorumModule.Execute(pid, "print('hello')");
+
+    * Execute in All Clients:
+        bool ok = QuorumModule.ExecuteScriptAll("print('hello')");
+
+    Both return true if the script was dispatched. The script is passed as
+    an ANSI string (LPStr).
+
+    ------ Roblox / Multi-instance ------
+
+    * Allow Multi Instance:
+        QuorumModule.AllowMultiInstance(true);
+        Patches Roblox to allow multiple clients at once.
+        Pass false to restore the default single-instance behavior.
+
+    * Is Multi Instance Allowed:
+        bool allowed = QuorumModule.IsMultiInstanceAllowed();
+
+    * Open Roblox:
+        QuorumModule.OpenRoblox();
+        Launches the Roblox client.
+
+    ------ Clients ------
+
+    * Get Clients List:
+        var clients = QuorumModule.GetClients();
+        foreach (var (pid, attached) in clients)
+            Console.WriteLine($"PID {pid} attached={attached}");
+
+        Returns a list of (PID, Attached) tuples.
+
+    ------ Auto Update ------
+
+    * Auto Update:
+        QuorumModule.AutoUpdate();
+        Runs the built-in updater. Call once at startup.
+
+    // ======= PREMIUM ONLY =======
+
+    * Set Info:
+        QuorumModule.SetInfo("ExecutorName", "v1.4.8");
+        Changes the executor name and version reported to scripts / the
+        Roblox client.
+
+    * Use Discord RPC:
+        QuorumModule.UseDiscordRPC(true);
+        Enables Rich Presence integration.
+
+    * Set Attach Notification:
+        QuorumModule.SetAttachNotification("Executor", "Attached!");
+        Sets the toast shown when a client is attached.
+
+    * Set Main Folder:
+        QuorumModule.SetMainFolder(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Bin"));
+        Points the module at its support folder next to the dll.
+
+    * Set Workspace:
+        QuorumModule.SetWorkspace(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Workspace"));
+        Sets the working directory used for scripts, logs and temp files.
+
+    * Set Autoexecute:
+        QuorumModule.SetAutoexecute(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "autoexec"));
+        Sets the folder the module watches for scripts to auto-run on attach.
+
+
+5. Basic Usage Example:
+
+    Copy the code below into Form1.cs. It contains both the QuorumModule
+    binding class and the form that uses it. You can also move the
+    QuorumModule class into a separate file (e.g. QuorumModule.cs) — in
+    this example it is placed directly in the form's code for convenience.
+
+        using System;
+        using System.IO;
+        using System.Collections.Generic;
+        using System.Runtime.InteropServices;
+        using System.Windows.Forms;
+
+        public static class QuorumModule
+        {
+            private const string Dll = "Quorum-External-Module.dll";
+            private const CallingConvention Cc = CallingConvention.Cdecl;
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "AttachAll")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool AttachAll();
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "Attach")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool Attach(uint pid);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "IsAttached")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool IsAttached();
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "IsAttachedByPid")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool IsAttachedByPid(uint pid);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "Detach")]
+            public static extern void Detach();
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "DetachByPid")]
+            public static extern void DetachByPid(uint pid);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "GetClientsList")]
+            private static extern IntPtr GetClientsListRaw();
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "FreeString")]
+            private static extern void FreeString(IntPtr p);
+
+            public static List<(uint Pid, bool Attached)> GetClients()
+            {
+                var result = new List<(uint, bool)>();
+                IntPtr p = GetClientsListRaw();
+                if (p == IntPtr.Zero) return result;
+
+                try
+                {
+                    string s = Marshal.PtrToStringAnsi(p) ?? string.Empty;
+                    foreach (var line in s.Split('\n'))
+                    {
+                        if (line.Length == 0) continue;
+                        var parts = line.Split('\t');
+                        if (parts.Length < 2) continue;
+                        if (uint.TryParse(parts[0], out uint pid))
+                            result.Add((pid, parts[1] == "1"));
+                    }
+                }
+                finally
+                {
+                    FreeString(p);
+                }
+                return result;
+            }
+
+            public static void ReleaseString(IntPtr p) => FreeString(p);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "ExecuteScriptAll")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool ExecuteScriptAll([MarshalAs(UnmanagedType.LPStr)] string script);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "Execute")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool Execute(uint pid, [MarshalAs(UnmanagedType.LPStr)] string script);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "AllowMultiInstance")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool AllowMultiInstance([MarshalAs(UnmanagedType.I1)] bool allow);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "OpenRoblox")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool OpenRoblox();
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "IsMultiInstanceAllowed")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool IsMultiInstanceAllowed();
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "AutoUpdate")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool AutoUpdate();
+
+            // ======= Premium Only ========
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "SetInfo", CharSet = CharSet.Ansi)]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool SetInfo(
+                [MarshalAs(UnmanagedType.LPStr)] string name,
+                [MarshalAs(UnmanagedType.LPStr)] string version);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "UseDiscordRPC")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool UseDiscordRPC([MarshalAs(UnmanagedType.I1)] bool enable);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "SetAttachNotification")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool SetAttachNotification(
+                [MarshalAs(UnmanagedType.LPStr)] string title,
+                [MarshalAs(UnmanagedType.LPStr)] string text);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "SetMainFolder")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool SetMainFolder([MarshalAs(UnmanagedType.LPStr)] string path);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "SetWorkspace")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool SetWorkspace([MarshalAs(UnmanagedType.LPStr)] string path);
+
+            [DllImport(Dll, CallingConvention = Cc, EntryPoint = "SetAutoexecute")]
+            [return: MarshalAs(UnmanagedType.I1)]
+            public static extern bool SetAutoexecute([MarshalAs(UnmanagedType.LPStr)] string path);
+        }
+
+        public partial class Form1 : Form
+        {
+            public Form1()
+            {
+                InitializeComponent();
+
+                QuorumModule.AutoUpdate();
+
+                // ======= Premium configuration =======
+                QuorumModule.SetInfo("ExecutorName", "v1.4.8");
+                QuorumModule.UseDiscordRPC(false);
+
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                QuorumModule.SetMainFolder(Path.Combine(baseDir, "Bin"));
+                QuorumModule.SetWorkspace(Path.Combine(baseDir, "Workspace"));
+                QuorumModule.SetAutoexecute(Path.Combine(baseDir, "autoexec"));
+
+                QuorumModule.SetAttachNotification("Quorum Executor", "Successfully Attached!");
+                // =====================================
+            }
+
+            private void InjectButton_Click(object sender, EventArgs e)
+            {
+                bool ok = QuorumModule.AttachAll();
+                MessageBox.Show(ok ? "Attached" : "Attach failed");
+            }
+
+            private void ExecuteButton_Click(object sender, EventArgs e)
+            {
+                string script = richTextBox1.Text;
+                bool ok = QuorumModule.ExecuteScriptAll(script);
+                MessageBox.Show("Execute result: " + ok);
+            }
+
+            private void CheckStateButton_Click(object sender, EventArgs e)
+            {
+                bool isAttached = QuorumModule.IsAttached();
+                MessageBox.Show(isAttached ? "Attached" : "Not attached");
+            }
+
+            private void ListClientsButton_Click(object sender, EventArgs e)
+            {
+                var clients = QuorumModule.GetClients();
+                string report = clients.Count == 0
+                    ? "No clients"
+                    : string.Join(Environment.NewLine, clients.ConvertAll(c => $"PID {c.Pid} attached={c.Attached}"));
+                MessageBox.Show(report);
+            }
+
+            private void MultiInstanceCheck_CheckedChanged(object sender, EventArgs e)
+            {
+                QuorumModule.AllowMultiInstance(MultiInstanceCheck.Checked);
+            }
+
+            private void OpenRobloxButton_Click(object sender, EventArgs e)
+            {
+                QuorumModule.OpenRoblox();
+            }
+        }
+
+
+6. Notes on Marshalling:
+
+    * Calling convention is Cdecl, not StdCall. If you forget this, x64
+      will mostly still work, but x86 will crash.
+
+    * bool return values use UnmanagedType.I1 (1 byte). Plain bool would
+      marshal as 4-byte BOOL and read the wrong bits — always annotate.
+
+    * string parameters use UnmanagedType.LPStr (ANSI). The dll expects
+      char*, not wchar_t*.
+
+    * Pointers returned by GetClientsListRaw must be freed with FreeString.
+      The GetClients() helper does this for you — prefer it.
+
+    * The dll is loaded lazily on first DllImport call. If the file is
+      missing, you get DllNotFoundException at the first call site, not
+      at startup.
+
+
+7. Errors & Solutions:
+
+    * DllNotFoundException:
+        Quorum-External-Module.dll is not next to your exe. Move it there.
+
+    * EntryPointNotFoundException:
+        The export name does not exist in the dll. Check with:
+            dumpbin /exports Quorum-External-Module.dll
+
+    * Attach returns false:
+        - Run as Administrator (manifest).
+        - Roblox must be running.
+
+    * Script executes but does nothing:
+        - Roblox client may not be in a game yet.
+        - Check the client log for errors.
+
+    * BadImageFormatException:
+        Your project is built for AnyCPU or x86. Switch to x64 — the dll
+        is 64-bit only.
