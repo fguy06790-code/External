@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="src/ExternalExecutor.Core/ExternalExecutor.Core.csproj" />
+  <Project Path="src/ExternalExecutor.App/ExternalExecutor.App.csproj" />
+  <Project Path="tests/ExternalExecutor.Core.Checks/ExternalExecutor.Core.Checks.csproj" />
+  <Project Path="tests/ExternalExecutor.Sdk.Checks/ExternalExecutor.Sdk.Checks.csproj" />
+  <Project Path="tests/ExternalExecutor.Module.Checks/ExternalExecutor.Module.Checks.csproj" />
+  <Project Path="examples/SdkConsole/SdkConsole.csproj" />
+</Solution>

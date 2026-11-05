@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Version>1.2.0</Version>
+    <PackageId>Ryn.Executor.Api</PackageId>
+    <Authors>RYN</Authors>
+    <Description>Managed asynchronous SDK for the supplied Quorum External Module, with structured results, client targeting, and offline module diagnostics.</Description>
+    <PackageReadmeFile>SDK.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="../../SDK.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+</Project>
