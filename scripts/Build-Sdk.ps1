@@ -39,7 +39,10 @@ if (Test-Path -LiteralPath $SdkDirectory) {
 }
 New-Item -ItemType Directory -Path $PackagesDirectory -Force | Out-Null
 $PackArguments = @('pack', $CoreProject, '-c', 'Release', '-o', $PackagesDirectory)
-if ($SkipBuild) { $PackArguments += '--no-build' }
+if ($SkipBuild) {
+    # Publish.ps1 suppresses PDB output. Pack must use the same symbol settings.
+    $PackArguments += @('--no-build', '-p:DebugType=None', '-p:DebugSymbols=false')
+}
 & dotnet @PackArguments
 if ($LASTEXITCODE -ne 0) { throw 'SDK NuGet package build failed.' }
 
